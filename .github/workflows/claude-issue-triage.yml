@@ -39,7 +39,7 @@ jobs:
                - "necesita-info" si falta información para reproducir o diagnosticar
                Si el issue ya tiene etiquetas de este set que ya no aplican (por ejemplo, tras una edición), quítalas con `gh issue edit ${{ github.event.issue.number }} --remove-label "..."`. No toques etiquetas fuera de este set.
             3. Busca un comentario previo tuyo de diagnóstico que contenga el marcador `<!-- claude-triage -->`. Si existe, actualízalo con `gh api -X PATCH repos/${{ github.repository }}/issues/comments/<id>`. Si no existe, créalo con `gh issue comment ${{ github.event.issue.number }} --body-file <archivo>`. Nunca crees un segundo comentario de diagnóstico.
-            4. El comentario debe empezar con el marcador `<!-- claude-triage -->` y tener estas secciones, en español:
+            4. El comentario debe estar en formato Markdown que GitHub pueda renderizar. Debe empezar con el marcador `<!-- claude-triage -->` y tener estas secciones, en español:
                - **Resumen**: qué problema o petición describe el issue, en 2 o 3 frases.
                - **Causa probable**: qué funciones o zonas de `game.js` (o de `index.html` o `style.css`) están implicadas, con líneas aproximadas. Indica si es una hipótesis.
                - **Reproducción**: pasos para reproducirlo, o qué información falta.
