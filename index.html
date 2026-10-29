@@ -40,6 +40,22 @@
           <select id="skin-select" aria-label="Skin visual"></select>
         </div>
 
+        <div class="panel-section records">
+          <span class="label">TOP 5</span>
+          <table class="records-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th class="num">Puntos</th>
+                <th class="num" title="Mejor combo de la partida">Combo</th>
+                <th class="num" title="Máximo de líneas en una jugada">Líneas</th>
+              </tr>
+            </thead>
+            <tbody id="records-body"></tbody>
+          </table>
+          <button id="clear-records-btn" class="danger-btn" type="button">Borrar records</button>
+        </div>
+
         <div class="panel-section controls">
           <span class="label">CONTROLS</span>
           <ul>
@@ -56,6 +72,30 @@
         <div class="overlay-box">
           <p id="overlay-title">GAME OVER</p>
           <p id="overlay-score"></p>
+          <p id="overlay-stats" class="overlay-stats hidden"></p>
+
+          <form id="record-form" class="record-form hidden">
+            <label class="record-label" for="record-name">¡Entras en el top 5! Escribe tu nombre</label>
+            <input id="record-name" type="text" maxlength="12" placeholder="Tu nombre" autocomplete="off" />
+            <button id="record-save" class="menu-btn" type="submit">Guardar</button>
+            <p id="record-error" class="record-error"></p>
+          </form>
+
+          <div id="overlay-records" class="overlay-records hidden">
+            <table class="records-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th class="num">Puntos</th>
+                  <th class="num" title="Mejor combo de la partida">Combo</th>
+                  <th class="num" title="Máximo de líneas en una jugada">Líneas</th>
+                </tr>
+              </thead>
+              <tbody id="overlay-records-body"></tbody>
+            </table>
+            <button id="overlay-clear-records-btn" class="danger-btn" type="button">Borrar records</button>
+          </div>
+
           <button id="restart-btn">Reiniciar</button>
 
           <div id="pause-menu" class="pause-menu">
