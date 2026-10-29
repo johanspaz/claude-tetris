@@ -42,8 +42,16 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
+const pauseMenu = document.getElementById('pause-menu');
+const controlsView = document.getElementById('controls-view');
+const resumeBtn = document.getElementById('resume-btn');
+const pauseRestartBtn = document.getElementById('pause-restart-btn');
+const controlsBtn = document.getElementById('controls-btn');
+const backBtn = document.getElementById('back-btn');
+const startLevelSelect = document.getElementById('start-level');
 
 let theme = 'dark', gridColor;
+let startLevel = 1;
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 
 function createBoard() {
@@ -97,6 +105,10 @@ function merge() {
         board[current.y + r][current.x + c] = current.shape[r][c];
 }
 
+function dropIntervalFor(lvl) {
+  return Math.max(100, 1000 - (lvl - 1) * 90);
+}
+
 function clearLines() {
   let cleared = 0;
   for (let r = ROWS - 1; r >= 0; r--) {
@@ -110,8 +122,8 @@ function clearLines() {
   if (cleared) {
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
-    level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    level = startLevel + Math.floor(lines / 10);
+    dropInterval = dropIntervalFor(level);
     updateHUD();
   }
 }
@@ -231,11 +243,19 @@ function setTheme(name) {
   if (current) { draw(); drawNext(); }
 }
 
+// view: 'menu' (pausa), 'controls' (lista de teclas) o 'gameover'
+function setOverlayView(view) {
+  pauseMenu.classList.toggle('hidden', view !== 'menu');
+  controlsView.classList.toggle('hidden', view !== 'controls');
+  restartBtn.classList.toggle('hidden', view !== 'gameover');
+}
+
 function endGame() {
   gameOver = true;
   cancelAnimationFrame(animId);
   overlayTitle.textContent = 'GAME OVER';
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
+  setOverlayView('gameover');
   overlay.classList.remove('hidden');
 }
 
@@ -243,12 +263,14 @@ function togglePause() {
   if (gameOver) return;
   paused = !paused;
   if (!paused) {
+    overlay.classList.add('hidden');
     lastTime = performance.now();
     loop(lastTime);
   } else {
     cancelAnimationFrame(animId);
     overlayTitle.textContent = 'PAUSA';
     overlayScore.textContent = '';
+    setOverlayView('menu');
     overlay.classList.remove('hidden');
   }
 }
@@ -274,10 +296,10 @@ function init() {
   board = createBoard();
   score = 0;
   lines = 0;
-  level = 1;
+  level = startLevel;
   paused = false;
   gameOver = false;
-  dropInterval = 1000;
+  dropInterval = dropIntervalFor(level);
   dropAccum = 0;
   lastTime = performance.now();
   next = randomPiece();
@@ -289,7 +311,10 @@ function init() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.code === 'KeyP') { togglePause(); return; }
+  if (e.code === 'KeyP' || e.code === 'Escape') {
+    if (!e.repeat) togglePause(); // ignora la repetición automática al mantener la tecla
+    return;
+  }
   if (paused || gameOver) return;
   switch (e.code) {
     case 'ArrowLeft':
@@ -314,6 +339,31 @@ document.addEventListener('keydown', e => {
 });
 
 restartBtn.addEventListener('click', init);
+
+resumeBtn.addEventListener('click', () => {
+  togglePause();
+  resumeBtn.blur(); // evita que Espacio vuelva a activar el botón
+});
+
+pauseRestartBtn.addEventListener('click', () => {
+  init();
+  pauseRestartBtn.blur();
+});
+
+controlsBtn.addEventListener('click', () => {
+  setOverlayView('controls');
+  controlsBtn.blur();
+});
+
+backBtn.addEventListener('click', () => {
+  setOverlayView('menu');
+  backBtn.blur();
+});
+
+startLevelSelect.addEventListener('change', () => {
+  startLevel = Number(startLevelSelect.value); // se aplica en la próxima partida
+  startLevelSelect.blur(); // evita que las flechas cambien el selector durante el juego
+});
 
 themeToggle.addEventListener('click', () => {
   setTheme(theme === 'dark' ? 'light' : 'dark');
