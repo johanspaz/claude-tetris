@@ -191,15 +191,37 @@ function loadRecords() {
   }
   if (!Array.isArray(data)) return [];
   return data
-    .filter(r => r && typeof r === 'object' && Number.isFinite(Number(r.score)))
+    .filter(r => r && typeof r === 'object' && Number.isFinite(r.score) && r.score > 0)
     .map(r => ({
-      name: typeof r.name === 'string' ? r.name : 'Jugador',
-      score: Number(r.score),
+      name: normalizeName(r.name),
+      score: r.score,
       combo: Number(r.combo) || 0,
       maxLines: Number(r.maxLines) || 0,
     }))
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_RECORDS);
+}
+
+// Recorta y limpia un nombre: máximo 12 caracteres, o 'Jugador' si queda vacío.
+function normalizeName(name) {
+  const text = typeof name === 'string' ? name.trim() : '';
+  return Array.from(text).slice(0, 12).join('') || 'Jugador';
+}
+
+// true si hay datos guardados que no son una lista de records. Guardar sobre ellos los borraría.
+function storedRecordsCorrupt() {
+  let raw;
+  try {
+    raw = localStorage.getItem(RECORDS_KEY);
+  } catch (e) {
+    return true;
+  }
+  if (raw === null) return false;
+  try {
+    return !Array.isArray(JSON.parse(raw));
+  } catch (e) {
+    return true;
+  }
 }
 
 // Devuelve true si se guardó correctamente.
@@ -215,6 +237,8 @@ function saveRecords(list) {
 
 function isTopScore(score) {
   if (!(Number.isFinite(score) && score > 0)) return false;
+  // Con datos corruptos no se puede guardar sin borrarlos, así que no hay top.
+  if (storedRecordsCorrupt()) return false;
   const list = loadRecords();
   if (list.length < MAX_RECORDS) return true;
   return score > list[list.length - 1].score;
@@ -225,9 +249,8 @@ function addRecord(entry) {
   const score = Number(entry.score);
   if (!isTopScore(score)) return -1;
 
-  const name = Array.from(String(entry.name ?? '').trim()).slice(0, 12).join('') || 'Jugador';
   const record = {
-    name,
+    name: normalizeName(entry.name),
     score,
     combo: Number(entry.combo) || 0,
     maxLines: Number(entry.maxLines) || 0,
