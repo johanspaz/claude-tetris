@@ -53,30 +53,40 @@ function loadRecords() {
   if (!Array.isArray(data)) return [];
   return data
     .filter(r => r && typeof r === 'object' && Number.isFinite(Number(r.score)))
-    .sort((a, b) => Number(b.score) - Number(a.score))
+    .map(r => ({
+      name: typeof r.name === 'string' ? r.name : 'Jugador',
+      score: Number(r.score),
+      combo: Number(r.combo) || 0,
+      maxLines: Number(r.maxLines) || 0,
+    }))
+    .sort((a, b) => b.score - a.score)
     .slice(0, MAX_RECORDS);
 }
 
+// Devuelve true si se guardó correctamente.
 function saveRecords(list) {
   try {
     localStorage.setItem(RECORDS_KEY, JSON.stringify(list));
+    return true;
   } catch (e) {
-    // Almacenamiento no disponible o lleno: se ignora.
+    // Almacenamiento no disponible o lleno.
+    return false;
   }
 }
 
 function isTopScore(score) {
-  if (!(score > 0)) return false;
+  if (!(Number.isFinite(score) && score > 0)) return false;
   const list = loadRecords();
   if (list.length < MAX_RECORDS) return true;
-  return score > Number(list[list.length - 1].score);
+  return score > list[list.length - 1].score;
 }
 
+// Devuelve el índice donde quedó el record, o -1 si no entra o no se pudo guardar.
 function addRecord(entry) {
   const score = Number(entry.score);
   if (!isTopScore(score)) return -1;
 
-  const name = String(entry.name ?? '').trim().slice(0, 12) || 'Jugador';
+  const name = Array.from(String(entry.name ?? '').trim()).slice(0, 12).join('') || 'Jugador';
   const record = {
     name,
     score,
@@ -85,11 +95,11 @@ function addRecord(entry) {
   };
 
   const list = loadRecords();
-  let index = list.findIndex(r => score > Number(r.score));
+  let index = list.findIndex(r => score > r.score);
   if (index === -1) index = list.length;
 
   list.splice(index, 0, record);
-  saveRecords(list.slice(0, MAX_RECORDS));
+  if (!saveRecords(list.slice(0, MAX_RECORDS))) return -1;
   return index;
 }
 
