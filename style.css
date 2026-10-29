@@ -36,6 +36,55 @@
   --danger: #c62828;
 }
 
+/*
+ * Skins. Precedencia: la skin redefine --canvas-bg, --accent, --accent-hover
+ * y --border sobre la base del tema. Los selectores llevan dos atributos
+ * (especificidad 0,2,0), así que ganan a [data-theme="light"] (0,1,0) sin
+ * depender del orden; cada skin tiene variante oscura (:not light) y clara.
+ * Retro no define reglas: usa directamente las variables del tema.
+ */
+[data-skin="neon"]:not([data-theme="light"]) {
+  --canvas-bg: #000000;
+  --accent: #00f0ff;
+  --accent-hover: #7ffcff;
+  --border: #1d4a5a;
+}
+
+[data-skin="neon"][data-theme="light"] {
+  --canvas-bg: #f4fbff;
+  --accent: #006f8a;
+  --accent-hover: #005a70;
+  --border: #7fc6d6;
+}
+
+[data-skin="pastel"]:not([data-theme="light"]) {
+  --canvas-bg: #252534;
+  --accent: #c8b6f0;
+  --accent-hover: #ddd0f8;
+  --border: #3d3d55;
+}
+
+[data-skin="pastel"][data-theme="light"] {
+  --canvas-bg: #fdf9f4;
+  --accent: #6a56a8;
+  --accent-hover: #54438a;
+  --border: #d8cfe6;
+}
+
+[data-skin="pixel"]:not([data-theme="light"]) {
+  --canvas-bg: #101028;
+  --accent: #f8e800;
+  --accent-hover: #fff566;
+  --border: #5858a8;
+}
+
+[data-skin="pixel"][data-theme="light"] {
+  --canvas-bg: #e8e8f8;
+  --accent: #0058f8;
+  --accent-hover: #0042b8;
+  --border: #5858a8;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -131,6 +180,22 @@ body {
 }
 
 #theme-toggle:hover {
+  border-color: var(--accent);
+}
+
+/* ---- Selector de skin ---- */
+#skin-select {
+  background: var(--kbd-bg);
+  color: var(--text);
+  border: 1px solid var(--kbd-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#skin-select:hover {
   border-color: var(--accent);
 }
 

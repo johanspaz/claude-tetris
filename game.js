@@ -16,6 +16,57 @@ const COLORS = [
   '#b0bec5', // Tuerca - gris acero
 ];
 
+// Skins: cada una tiene su nombre para mostrar y una paleta con la misma
+// longitud y orden que COLORS (índice 0 = null). La paleta de Retro es COLORS.
+const SKINS = {
+  retro: {
+    label: 'Retro',
+    colors: COLORS,
+  },
+  neon: {
+    label: 'Neon',
+    colors: [
+      null,
+      '#00f0ff', // I - cian eléctrico
+      '#fff200', // O - amarillo
+      '#ff00ff', // T - magenta
+      '#39ff14', // S - verde lima
+      '#ff2a4d', // Z - rojo neón
+      '#2d7bff', // J - azul
+      '#ff8c00', // L - naranja
+      '#e0e0ff', // Tuerca - blanco azulado
+    ],
+  },
+  pastel: {
+    label: 'Pastel',
+    colors: [
+      null,
+      '#aee8f0', // I
+      '#fff1b0', // O
+      '#d9c2f0', // T
+      '#c3f0c8', // S
+      '#f7b8b8', // Z
+      '#b8d4f7', // J
+      '#ffd8a8', // L
+      '#d0d4dc', // Tuerca
+    ],
+  },
+  pixel: {
+    label: 'Pixel',
+    colors: [
+      null,
+      '#00e8f8', // I
+      '#f8e800', // O
+      '#a800f8', // T
+      '#00f800', // S
+      '#f80000', // Z
+      '#0058f8', // J
+      '#f88800', // L
+      '#bcbcbc', // Tuerca
+    ],
+  },
+};
+
 const PIECES = [
   null,
   [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], // I
@@ -42,8 +93,11 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
+const skinSelect = document.getElementById('skin-select');
+const SKIN_STORAGE_KEY = 'tetris-skin';
 
 let theme = 'dark', gridColor;
+let currentSkin = 'retro';
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 
 function createBoard() {
@@ -162,7 +216,7 @@ function updateHUD() {
 
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
-  const color = COLORS[colorIndex];
+  const color = SKINS[currentSkin].colors[colorIndex];
   context.globalAlpha = alpha ?? 1;
   context.fillStyle = color;
   context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
@@ -231,6 +285,23 @@ function setTheme(name) {
   if (current) { draw(); drawNext(); }
 }
 
+function setSkin(name) {
+  if (!Object.prototype.hasOwnProperty.call(SKINS, name)) return;
+  currentSkin = name;
+  document.documentElement.dataset.skin = name;
+  skinSelect.value = name;
+  try { localStorage.setItem(SKIN_STORAGE_KEY, name); } catch (e) { /* sin persistencia */ }
+  if (current) { draw(); drawNext(); }
+}
+
+function loadSavedSkin() {
+  try {
+    const saved = localStorage.getItem(SKIN_STORAGE_KEY);
+    if (Object.prototype.hasOwnProperty.call(SKINS, saved)) return saved;
+  } catch (e) { /* sin acceso a localStorage */ }
+  return 'retro';
+}
+
 function endGame() {
   gameOver = true;
   cancelAnimationFrame(animId);
@@ -290,6 +361,7 @@ function init() {
 
 document.addEventListener('keydown', e => {
   if (e.code === 'KeyP') { togglePause(); return; }
+  if (e.target === skinSelect) return; // las flechas/Espacio son del selector
   if (paused || gameOver) return;
   switch (e.code) {
     case 'ArrowLeft':
@@ -320,6 +392,22 @@ themeToggle.addEventListener('click', () => {
   themeToggle.blur(); // evita que Espacio vuelva a activar el botón
 });
 
+skinSelect.addEventListener('change', () => {
+  setSkin(skinSelect.value);
+  skinSelect.blur(); // evita que las flechas sigan moviendo el selector
+});
+skinSelect.addEventListener('keydown', e => {
+  if (e.key === 'Escape') skinSelect.blur(); // cerrar sin cambiar devuelve el foco al juego
+});
+
+for (const [key, skin] of Object.entries(SKINS)) {
+  const option = document.createElement('option');
+  option.value = key;
+  option.textContent = skin.label;
+  skinSelect.append(option);
+}
+
+setSkin(loadSavedSkin());
 setTheme('dark');
 
 init();
