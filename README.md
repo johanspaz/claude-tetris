@@ -17,6 +17,9 @@ Implementación del clásico **Tetris** en JavaScript vanilla, usando HTML5 Canv
     - [Opción 1: abrir el archivo directamente](#opción-1-abrir-el-archivo-directamente)
     - [Opción 2: servidor local (recomendado)](#opción-2-servidor-local-recomendado)
   - [Controles](#controles)
+  - [Menú de pausa](#menú-de-pausa)
+  - [Records](#records)
+  - [Skins visuales](#skins-visuales)
   - [Cómo funciona](#cómo-funciona)
     - [1. `index.html`](#1-indexhtml)
     - [2. `style.css`](#2-stylecss)
@@ -41,7 +44,11 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Pieza fantasma** (_ghost piece_): muestra dónde aterrizará la pieza actual.
 - **Vista previa** de la siguiente pieza.
 - **Sistema de puntuación** clásico de Tetris (100 / 300 / 500 / 800 multiplicado por nivel).
-- **Niveles** que aumentan cada 10 líneas y aceleran la caída.
+- **Niveles** que aumentan cada 10 líneas y aceleran la caída. Puedes elegir el nivel inicial desde el menú de pausa.
+- **Combo**: racha de bloqueos consecutivos que limpian al menos una línea.
+- **Menú de pausa** con reanudar, reiniciar, ver controles y nivel inicial.
+- **Records**: top 5 guardado en el navegador, con nombre, puntuación, mejor combo y líneas máximas.
+- **Skins visuales**: Retro, Neon, Pastel y Pixel.
 - **Pausa** y **Game Over** con opción de reinicio.
 - **Modo oscuro / claro**: arranca en oscuro y el botón del panel ("Modo claro" / "Modo oscuro") cambia el tema.
 
@@ -86,7 +93,45 @@ Después abre `http://localhost:8000` en el navegador.
 | `↑` o `X` | Rotar la pieza en sentido horario |
 | `↓`       | Soft drop (bajar más rápido)      |
 | `Espacio` | Hard drop (caída instantánea)     |
-| `P`       | Pausar / reanudar                 |
+| `P` o `Esc` | Pausar / reanudar (abre el menú de pausa) |
+
+Mientras el menú de pausa está abierto, o el formulario de nombre o el selector de skin tienen el foco, las teclas del juego no mueven la pieza.
+
+---
+
+## Menú de pausa
+
+Al pulsar `P` o `Esc` se abre el menú de pausa con estas opciones:
+
+- **Reanudar**: vuelve al juego.
+- **Reiniciar**: empieza una partida nueva sin recargar la página.
+- **Ver controles**: muestra la lista de teclas dentro del menú. **Volver** regresa al menú.
+- **Nivel inicial**: elige el nivel (1 a 10) con el que empieza la próxima partida. Se aplica al reiniciar.
+
+---
+
+## Records
+
+El juego guarda el **top 5** de puntuaciones en el `localStorage` del navegador, así que se conservan al recargar la página.
+
+- Al terminar una partida que entra en el top, el Game Over pide un nombre (máximo 12 caracteres) y lo guarda con **Guardar**. La fila nueva queda resaltada.
+- Cada fila muestra la puntuación, el **mejor combo** y las **líneas máximas** (el mayor número de líneas limpiadas en una sola jugada) de esa partida.
+- La tabla aparece en el panel lateral y en el Game Over.
+- **Borrar records** elimina todos los records guardados, tras confirmar.
+- Si el navegador no permite `localStorage`, el juego no ofrece guardar records.
+
+---
+
+## Skins visuales
+
+El selector **SKIN** del panel cambia la apariencia completa del juego:
+
+- **Retro**: bloques cuadrados con colores planos.
+- **Neon**: fondo negro con brillo en cada bloque.
+- **Pastel**: colores suaves con esquinas redondeadas.
+- **Pixel**: bloques con bisel y textura de píxeles.
+
+La skin elegida se recuerda entre sesiones y se aplica sin recargar. Funciona con el modo oscuro y claro.
 
 ---
 
@@ -99,8 +144,8 @@ El juego se compone de tres archivos que cooperan:
 Define la estructura visual:
 
 - Un `<canvas id="board">` de **300 × 600** píxeles donde se renderiza el tablero.
-- Un panel lateral con `SCORE`, `LINES`, `LEVEL`, vista de la siguiente pieza, el botón `#theme-toggle` para cambiar de tema y la lista de controles.
-- Un overlay para los estados **PAUSA** y **GAME OVER**.
+- Un panel lateral con `SCORE`, `LINES`, `LEVEL`, vista de la siguiente pieza, el botón `#theme-toggle` para cambiar de tema, el selector `#skin-select`, la tabla de records y la lista de controles.
+- Un overlay para los estados **PAUSA** (con el menú de pausa), **GAME OVER** (con el formulario de nombre y la tabla de records).
 
 ### 2. `style.css`
 
@@ -161,7 +206,7 @@ Cuando una pieza recién generada ya colisiona al aparecer (`spawn`), se dispara
 03-tetris/
 ├── index.html      # Estructura del DOM y canvas
 ├── style.css       # Estilos del juego (temas oscuro y claro)
-├── game.js         # Toda la lógica del Tetris (~300 líneas)
+├── game.js         # Toda la lógica del Tetris (~720 líneas)
 └── README.md
 ```
 
@@ -179,6 +224,8 @@ Algunos parámetros fáciles de tunear en `game.js`:
 | `COLORS`       | Paleta de colores por tipo de pieza      | 8 colores             |
 | `LINE_SCORES`  | Puntos por 1, 2, 3 o 4 líneas eliminadas | `[0,100,300,500,800]` |
 | `dropInterval` | Velocidad inicial de caída en ms         | `1000`                |
+| `MAX_RECORDS`  | Cuántos records se guardan               | `5`                   |
+| `SKINS`        | Paleta y dibujo de cada skin visual      | Retro, Neon, Pastel, Pixel |
 
 > Si cambias `COLS`, `ROWS` o `BLOCK`, recuerda ajustar también `width` y `height` del `<canvas id="board">` en `index.html` para que coincida (`COLS × BLOCK` × `ROWS × BLOCK`).
 
