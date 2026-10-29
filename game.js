@@ -235,8 +235,20 @@ function saveRecords(list) {
   }
 }
 
+// Sin almacenamiento no se puede guardar, así que ninguna puntuación entra en el top.
+function storageAvailable() {
+  try {
+    localStorage.setItem(RECORDS_KEY + '-probe', '1');
+    localStorage.removeItem(RECORDS_KEY + '-probe');
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 function isTopScore(score) {
   if (!(Number.isFinite(score) && score > 0)) return false;
+  if (!storageAvailable()) return false;
   // Con datos corruptos no se puede guardar sin borrarlos, así que no hay top.
   if (storedRecordsCorrupt()) return false;
   const list = loadRecords();
