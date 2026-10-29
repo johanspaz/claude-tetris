@@ -45,6 +45,7 @@ const themeToggle = document.getElementById('theme-toggle');
 
 let theme = 'dark', gridColor;
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let combo, bestCombo, maxLines;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -114,6 +115,7 @@ function clearLines() {
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
     updateHUD();
   }
+  return cleared;
 }
 
 function ghostY() {
@@ -141,7 +143,11 @@ function softDrop() {
 
 function lockPiece() {
   merge();
-  clearLines();
+  const cleared = clearLines();
+  if (cleared > 0) combo++;
+  else combo = 0;
+  bestCombo = Math.max(bestCombo, combo);
+  maxLines = Math.max(maxLines, cleared);
   spawn();
 }
 
@@ -275,6 +281,9 @@ function init() {
   score = 0;
   lines = 0;
   level = 1;
+  combo = 0;
+  bestCombo = 0;
+  maxLines = 0;
   paused = false;
   gameOver = false;
   dropInterval = 1000;
