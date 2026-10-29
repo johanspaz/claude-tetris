@@ -271,12 +271,22 @@ const pauseRestartBtn = document.getElementById('pause-restart-btn');
 const controlsBtn = document.getElementById('controls-btn');
 const backBtn = document.getElementById('back-btn');
 const startLevelSelect = document.getElementById('start-level');
+const overlayStats = document.getElementById('overlay-stats');
+const recordForm = document.getElementById('record-form');
+const recordName = document.getElementById('record-name');
+const recordError = document.getElementById('record-error');
+const overlayRecords = document.getElementById('overlay-records');
+const recordsBody = document.getElementById('records-body');
+const overlayRecordsBody = document.getElementById('overlay-records-body');
+const clearRecordsBtn = document.getElementById('clear-records-btn');
+const overlayClearRecordsBtn = document.getElementById('overlay-clear-records-btn');
 
 let theme = 'dark', gridColor;
 let currentSkin = 'retro';
 let startLevel = 1;
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 let combo, bestCombo, maxLines;
+let highlightIndex = -1; // fila del último record guardado (-1 = ninguna)
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -484,20 +494,73 @@ function loadSavedSkin() {
   return 'retro';
 }
 
-// view: 'menu' (pausa), 'controls' (lista de teclas) o 'gameover'
+// view: 'menu' (pausa), 'controls' (lista de teclas), 'gameover' o
+// 'record' (game over con formulario de nombre, al entrar en el top)
 function setOverlayView(view) {
+  const ended = view === 'gameover' || view === 'record';
   pauseMenu.classList.toggle('hidden', view !== 'menu');
   controlsView.classList.toggle('hidden', view !== 'controls');
-  restartBtn.classList.toggle('hidden', view !== 'gameover');
+  restartBtn.classList.toggle('hidden', !ended);
+  overlayStats.classList.toggle('hidden', !ended);
+  overlayRecords.classList.toggle('hidden', !ended);
+  recordForm.classList.toggle('hidden', view !== 'record');
+}
+
+// Pinta filas del top 5 en un tbody; resalta highlightIndex.
+function renderRecordRows(tbody, list) {
+  tbody.textContent = '';
+  if (list.length === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 4;
+    td.className = 'records-empty';
+    td.textContent = 'Sin records todavía';
+    tr.append(td);
+    tbody.append(tr);
+    return;
+  }
+  list.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    if (i === highlightIndex) tr.className = 'record-new';
+    [r.name, r.score.toLocaleString(), r.combo, r.maxLines].forEach((value, col) => {
+      const td = document.createElement('td');
+      td.textContent = value;
+      if (col > 0) td.className = 'num';
+      tr.append(td);
+    });
+    tbody.append(tr);
+  });
+}
+
+function refreshRecords() {
+  const list = loadRecords();
+  renderRecordRows(recordsBody, list);
+  renderRecordRows(overlayRecordsBody, list);
+}
+
+function clearRecords() {
+  const ok = confirm('¿Borrar todos los records guardados?');
+  // confirm() detiene el loop; reiniciar el reloj evita un salto de caída al volver.
+  if (!gameOver && !paused) lastTime = performance.now();
+  if (!ok) return;
+  resetRecords();
+  highlightIndex = -1;
+  refreshRecords();
 }
 
 function endGame() {
   gameOver = true;
   cancelAnimationFrame(animId);
+  const canSave = isTopScore(score);
   overlayTitle.textContent = 'GAME OVER';
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
-  setOverlayView('gameover');
+  overlayStats.textContent = `Mejor combo: ${bestCombo} · Máx. líneas: ${maxLines}`;
+  recordName.value = '';
+  recordError.textContent = '';
+  setOverlayView(canSave ? 'record' : 'gameover');
+  refreshRecords();
   overlay.classList.remove('hidden');
+  if (canSave) recordName.focus(); // tras mostrar el overlay, para que el foco sea válido
 }
 
 function togglePause() {
@@ -546,15 +609,18 @@ function init() {
   dropInterval = dropIntervalFor(level);
   dropAccum = 0;
   lastTime = performance.now();
+  highlightIndex = -1;
   next = randomPiece();
   spawn();
   updateHUD();
+  refreshRecords();
   overlay.classList.add('hidden');
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
 }
 
 document.addEventListener('keydown', e => {
+  if (e.target === recordName) return; // el campo de nombre usa sus propias teclas
   if (e.code === 'KeyP' || e.code === 'Escape') {
     if (!e.repeat) togglePause(); // ignora la repetición automática al mantener la tecla
     return;
@@ -621,6 +687,26 @@ skinSelect.addEventListener('change', () => {
 });
 skinSelect.addEventListener('keydown', e => {
   if (e.key === 'Escape') skinSelect.blur(); // cerrar sin cambiar devuelve el foco al juego
+});
+
+recordForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const index = addRecord({ name: recordName.value, score, combo: bestCombo, maxLines });
+  if (index === -1) {
+    recordError.textContent = 'No se pudo guardar el record.';
+    return;
+  }
+  highlightIndex = index;
+  if (document.activeElement) document.activeElement.blur(); // quita el foco del campo y del botón
+  refreshRecords();
+  setOverlayView('gameover');
+});
+
+[clearRecordsBtn, overlayClearRecordsBtn].forEach(btn => {
+  btn.addEventListener('click', () => {
+    clearRecords();
+    btn.blur(); // evita que Espacio vuelva a activar el botón
+  });
 });
 
 for (const [key, skin] of Object.entries(SKINS)) {
