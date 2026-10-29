@@ -16,6 +16,57 @@ const COLORS = [
   '#b0bec5', // Tuerca - gris acero
 ];
 
+// Skins: cada una tiene su nombre para mostrar y una paleta con la misma
+// longitud y orden que COLORS (índice 0 = null). La paleta de Retro es COLORS.
+const SKINS = {
+  retro: {
+    label: 'Retro',
+    colors: COLORS,
+  },
+  neon: {
+    label: 'Neon',
+    colors: [
+      null,
+      '#00f0ff', // I - cian eléctrico
+      '#fff200', // O - amarillo
+      '#ff00ff', // T - magenta
+      '#39ff14', // S - verde lima
+      '#ff2a4d', // Z - rojo neón
+      '#2d7bff', // J - azul
+      '#ff8c00', // L - naranja
+      '#e0e0ff', // Tuerca - blanco azulado
+    ],
+  },
+  pastel: {
+    label: 'Pastel',
+    colors: [
+      null,
+      '#aee8f0', // I
+      '#fff1b0', // O
+      '#d9c2f0', // T
+      '#c3f0c8', // S
+      '#f7b8b8', // Z
+      '#b8d4f7', // J
+      '#ffd8a8', // L
+      '#d0d4dc', // Tuerca
+    ],
+  },
+  pixel: {
+    label: 'Pixel',
+    colors: [
+      null,
+      '#00e8f8', // I
+      '#f8e800', // O
+      '#a800f8', // T
+      '#00f800', // S
+      '#f80000', // Z
+      '#0058f8', // J
+      '#f88800', // L
+      '#bcbcbc', // Tuerca
+    ],
+  },
+};
+
 const PIECES = [
   null,
   [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], // I
@@ -30,6 +81,87 @@ const PIECES = [
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
+const RECORDS_KEY = 'tetris-records';
+const MAX_RECORDS = 5;
+
+// --- Records (solo almacenamiento; sin UI) ---
+// Entrada: { name, score, combo, maxLines }, ordenadas de mayor a menor score.
+
+function loadRecords() {
+  let raw;
+  try {
+    raw = localStorage.getItem(RECORDS_KEY);
+  } catch (e) {
+    return [];
+  }
+  if (raw === null) return [];
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter(r => r && typeof r === 'object' && Number.isFinite(Number(r.score)))
+    .map(r => ({
+      name: typeof r.name === 'string' ? r.name : 'Jugador',
+      score: Number(r.score),
+      combo: Number(r.combo) || 0,
+      maxLines: Number(r.maxLines) || 0,
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_RECORDS);
+}
+
+// Devuelve true si se guardó correctamente.
+function saveRecords(list) {
+  try {
+    localStorage.setItem(RECORDS_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    // Almacenamiento no disponible o lleno.
+    return false;
+  }
+}
+
+function isTopScore(score) {
+  if (!(Number.isFinite(score) && score > 0)) return false;
+  const list = loadRecords();
+  if (list.length < MAX_RECORDS) return true;
+  return score > list[list.length - 1].score;
+}
+
+// Devuelve el índice donde quedó el record, o -1 si no entra o no se pudo guardar.
+function addRecord(entry) {
+  const score = Number(entry.score);
+  if (!isTopScore(score)) return -1;
+
+  const name = Array.from(String(entry.name ?? '').trim()).slice(0, 12).join('') || 'Jugador';
+  const record = {
+    name,
+    score,
+    combo: Number(entry.combo) || 0,
+    maxLines: Number(entry.maxLines) || 0,
+  };
+
+  const list = loadRecords();
+  let index = list.findIndex(r => score > r.score);
+  if (index === -1) index = list.length;
+
+  list.splice(index, 0, record);
+  if (!saveRecords(list.slice(0, MAX_RECORDS))) return -1;
+  return index;
+}
+
+function resetRecords() {
+  try {
+    localStorage.removeItem(RECORDS_KEY);
+  } catch (e) {
+    // Ignorado: no hay nada que borrar si el almacenamiento no está disponible.
+  }
+}
+
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('next-canvas');
@@ -42,6 +174,8 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
+const skinSelect = document.getElementById('skin-select');
+const SKIN_STORAGE_KEY = 'tetris-skin';
 const pauseMenu = document.getElementById('pause-menu');
 const controlsView = document.getElementById('controls-view');
 const resumeBtn = document.getElementById('resume-btn');
@@ -51,8 +185,10 @@ const backBtn = document.getElementById('back-btn');
 const startLevelSelect = document.getElementById('start-level');
 
 let theme = 'dark', gridColor;
+let currentSkin = 'retro';
 let startLevel = 1;
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let combo, bestCombo, maxLines;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -126,6 +262,7 @@ function clearLines() {
     dropInterval = dropIntervalFor(level);
     updateHUD();
   }
+  return cleared;
 }
 
 function ghostY() {
@@ -153,7 +290,11 @@ function softDrop() {
 
 function lockPiece() {
   merge();
-  clearLines();
+  const cleared = clearLines();
+  if (cleared > 0) combo++;
+  else combo = 0;
+  bestCombo = Math.max(bestCombo, combo);
+  maxLines = Math.max(maxLines, cleared);
   spawn();
 }
 
@@ -174,7 +315,7 @@ function updateHUD() {
 
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
-  const color = COLORS[colorIndex];
+  const color = SKINS[currentSkin].colors[colorIndex];
   context.globalAlpha = alpha ?? 1;
   context.fillStyle = color;
   context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
@@ -243,6 +384,23 @@ function setTheme(name) {
   if (current) { draw(); drawNext(); }
 }
 
+function setSkin(name) {
+  if (!Object.prototype.hasOwnProperty.call(SKINS, name)) return;
+  currentSkin = name;
+  document.documentElement.dataset.skin = name;
+  skinSelect.value = name;
+  try { localStorage.setItem(SKIN_STORAGE_KEY, name); } catch (e) { /* sin persistencia */ }
+  if (current) { draw(); drawNext(); }
+}
+
+function loadSavedSkin() {
+  try {
+    const saved = localStorage.getItem(SKIN_STORAGE_KEY);
+    if (Object.prototype.hasOwnProperty.call(SKINS, saved)) return saved;
+  } catch (e) { /* sin acceso a localStorage */ }
+  return 'retro';
+}
+
 // view: 'menu' (pausa), 'controls' (lista de teclas) o 'gameover'
 function setOverlayView(view) {
   pauseMenu.classList.toggle('hidden', view !== 'menu');
@@ -297,6 +455,9 @@ function init() {
   score = 0;
   lines = 0;
   level = startLevel;
+  combo = 0;
+  bestCombo = 0;
+  maxLines = 0;
   paused = false;
   gameOver = false;
   dropInterval = dropIntervalFor(level);
@@ -315,6 +476,7 @@ document.addEventListener('keydown', e => {
     if (!e.repeat) togglePause(); // ignora la repetición automática al mantener la tecla
     return;
   }
+  if (e.target === skinSelect) return; // las flechas/Espacio son del selector
   if (paused || gameOver) return;
   switch (e.code) {
     case 'ArrowLeft':
@@ -370,6 +532,22 @@ themeToggle.addEventListener('click', () => {
   themeToggle.blur(); // evita que Espacio vuelva a activar el botón
 });
 
+skinSelect.addEventListener('change', () => {
+  setSkin(skinSelect.value);
+  skinSelect.blur(); // evita que las flechas sigan moviendo el selector
+});
+skinSelect.addEventListener('keydown', e => {
+  if (e.key === 'Escape') skinSelect.blur(); // cerrar sin cambiar devuelve el foco al juego
+});
+
+for (const [key, skin] of Object.entries(SKINS)) {
+  const option = document.createElement('option');
+  option.value = key;
+  option.textContent = skin.label;
+  skinSelect.append(option);
+}
+
+setSkin(loadSavedSkin());
 setTheme('dark');
 
 init();
