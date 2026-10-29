@@ -30,6 +30,87 @@ const PIECES = [
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
+const RECORDS_KEY = 'tetris-records';
+const MAX_RECORDS = 5;
+
+// --- Records (solo almacenamiento; sin UI) ---
+// Entrada: { name, score, combo, maxLines }, ordenadas de mayor a menor score.
+
+function loadRecords() {
+  let raw;
+  try {
+    raw = localStorage.getItem(RECORDS_KEY);
+  } catch (e) {
+    return [];
+  }
+  if (raw === null) return [];
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter(r => r && typeof r === 'object' && Number.isFinite(Number(r.score)))
+    .map(r => ({
+      name: typeof r.name === 'string' ? r.name : 'Jugador',
+      score: Number(r.score),
+      combo: Number(r.combo) || 0,
+      maxLines: Number(r.maxLines) || 0,
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_RECORDS);
+}
+
+// Devuelve true si se guardó correctamente.
+function saveRecords(list) {
+  try {
+    localStorage.setItem(RECORDS_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    // Almacenamiento no disponible o lleno.
+    return false;
+  }
+}
+
+function isTopScore(score) {
+  if (!(Number.isFinite(score) && score > 0)) return false;
+  const list = loadRecords();
+  if (list.length < MAX_RECORDS) return true;
+  return score > list[list.length - 1].score;
+}
+
+// Devuelve el índice donde quedó el record, o -1 si no entra o no se pudo guardar.
+function addRecord(entry) {
+  const score = Number(entry.score);
+  if (!isTopScore(score)) return -1;
+
+  const name = Array.from(String(entry.name ?? '').trim()).slice(0, 12).join('') || 'Jugador';
+  const record = {
+    name,
+    score,
+    combo: Number(entry.combo) || 0,
+    maxLines: Number(entry.maxLines) || 0,
+  };
+
+  const list = loadRecords();
+  let index = list.findIndex(r => score > r.score);
+  if (index === -1) index = list.length;
+
+  list.splice(index, 0, record);
+  if (!saveRecords(list.slice(0, MAX_RECORDS))) return -1;
+  return index;
+}
+
+function resetRecords() {
+  try {
+    localStorage.removeItem(RECORDS_KEY);
+  } catch (e) {
+    // Ignorado: no hay nada que borrar si el almacenamiento no está disponible.
+  }
+}
+
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('next-canvas');
