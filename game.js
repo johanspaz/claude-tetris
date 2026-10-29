@@ -30,6 +30,77 @@ const PIECES = [
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
+const RECORDS_KEY = 'tetris-records';
+const MAX_RECORDS = 5;
+
+// --- Records (solo almacenamiento; sin UI) ---
+// Entrada: { name, score, combo, maxLines }, ordenadas de mayor a menor score.
+
+function loadRecords() {
+  let raw;
+  try {
+    raw = localStorage.getItem(RECORDS_KEY);
+  } catch (e) {
+    return [];
+  }
+  if (raw === null) return [];
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter(r => r && typeof r === 'object' && Number.isFinite(Number(r.score)))
+    .sort((a, b) => Number(b.score) - Number(a.score))
+    .slice(0, MAX_RECORDS);
+}
+
+function saveRecords(list) {
+  try {
+    localStorage.setItem(RECORDS_KEY, JSON.stringify(list));
+  } catch (e) {
+    // Almacenamiento no disponible o lleno: se ignora.
+  }
+}
+
+function isTopScore(score) {
+  if (!(score > 0)) return false;
+  const list = loadRecords();
+  if (list.length < MAX_RECORDS) return true;
+  return score > Number(list[list.length - 1].score);
+}
+
+function addRecord(entry) {
+  const score = Number(entry.score);
+  if (!isTopScore(score)) return -1;
+
+  const name = String(entry.name ?? '').trim().slice(0, 12) || 'Jugador';
+  const record = {
+    name,
+    score,
+    combo: Number(entry.combo) || 0,
+    maxLines: Number(entry.maxLines) || 0,
+  };
+
+  const list = loadRecords();
+  let index = list.findIndex(r => score > Number(r.score));
+  if (index === -1) index = list.length;
+
+  list.splice(index, 0, record);
+  saveRecords(list.slice(0, MAX_RECORDS));
+  return index;
+}
+
+function resetRecords() {
+  try {
+    localStorage.removeItem(RECORDS_KEY);
+  } catch (e) {
+    // Ignorado: no hay nada que borrar si el almacenamiento no está disponible.
+  }
+}
+
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('next-canvas');
