@@ -18,13 +18,17 @@ const COLORS = [
 
 // Skins: cada una tiene su nombre para mostrar y una paleta con la misma
 // longitud y orden que COLORS (índice 0 = null). La paleta de Retro es COLORS.
+// Cada skin define draw(context, x, y, colorIndex, size): dibuja un bloque en
+// su estilo. drawBlock fija globalAlpha (fantasma 0.2) antes de delegar aquí.
 const SKINS = {
   retro: {
     label: 'Retro',
     colors: COLORS,
+    draw: drawRetroBlock,
   },
   neon: {
     label: 'Neon',
+    draw: drawNeonBlock,
     colors: [
       null,
       '#00f0ff', // I - cian eléctrico
@@ -39,6 +43,7 @@ const SKINS = {
   },
   pastel: {
     label: 'Pastel',
+    draw: drawPastelBlock,
     colors: [
       null,
       '#aee8f0', // I
@@ -53,6 +58,7 @@ const SKINS = {
   },
   pixel: {
     label: 'Pixel',
+    draw: drawPixelBlock,
     colors: [
       null,
       '#00e8f8', // I
@@ -66,6 +72,88 @@ const SKINS = {
     ],
   },
 };
+
+// Color del bloque para la skin activa.
+function skinColor(colorIndex) {
+  return SKINS[currentSkin].colors[colorIndex];
+}
+
+// Retro: color plano y franja de luz arriba.
+function drawRetroBlock(context, x, y, colorIndex, size) {
+  const px = x * size + 1, py = y * size + 1, s = size - 2;
+  context.fillStyle = skinColor(colorIndex);
+  context.fillRect(px, py, s, s);
+  context.fillStyle = 'rgba(255,255,255,0.12)';
+  context.fillRect(px, py, s, 4);
+}
+
+// Neon: brillo con shadowBlur del mismo color del bloque. El radio es
+// pequeno para no penalizar los FPS; se restablece tras dibujar.
+const NEON_GLOW = 8;
+function drawNeonBlock(context, x, y, colorIndex, size) {
+  const px = x * size + 1, py = y * size + 1, s = size - 2;
+  const color = skinColor(colorIndex);
+  context.shadowColor = color;
+  context.shadowBlur = NEON_GLOW;
+  context.fillStyle = color;
+  context.fillRect(px, py, s, s);
+  context.shadowBlur = 0;
+  context.fillStyle = 'rgba(255,255,255,0.12)';
+  context.fillRect(px, py, s, 4);
+}
+
+// Trazo de rectangulo redondeado con arcTo (compatible con todos los navegadores).
+function roundedRectPath(context, px, py, s, r) {
+  context.beginPath();
+  context.moveTo(px + r, py);
+  context.arcTo(px + s, py, px + s, py + s, r);
+  context.arcTo(px + s, py + s, px, py + s, r);
+  context.arcTo(px, py + s, px, py, r);
+  context.arcTo(px, py, px + s, py, r);
+  context.closePath();
+}
+
+// Pastel: esquinas redondeadas; la franja de luz se recorta a la forma.
+function drawPastelBlock(context, x, y, colorIndex, size) {
+  const px = x * size + 1, py = y * size + 1, s = size - 2;
+  const r = Math.round(size * 0.25);
+  context.fillStyle = skinColor(colorIndex);
+  roundedRectPath(context, px, py, s, r);
+  context.fill();
+  context.save();
+  roundedRectPath(context, px, py, s, r);
+  context.clip();
+  context.fillStyle = 'rgba(255,255,255,0.25)';
+  context.fillRect(px, py, s, 4);
+  context.restore();
+}
+
+// Pixel: bisel de 2 px (claro arriba-izquierda, oscuro abajo-derecha) y una
+// textura de celdas de 4 px en tono ligeramente mas claro y mas oscuro.
+function drawPixelBlock(context, x, y, colorIndex, size) {
+  const px = x * size + 1, py = y * size + 1, s = size - 2;
+  const bevel = 2, cell = 4;
+  context.fillStyle = skinColor(colorIndex);
+  context.fillRect(px, py, s, s);
+
+  // Checkerboard de celdas: claras y oscuras alternas
+  for (let j = 0, row = 0; j < s; j += cell, row++) {
+    for (let i = 0, col = 0; i < s; i += cell, col++) {
+      context.fillStyle = (row + col) % 2 === 0
+        ? 'rgba(255,255,255,0.08)'
+        : 'rgba(0,0,0,0.08)';
+      context.fillRect(px + i, py + j, Math.min(cell, s - i), Math.min(cell, s - j));
+    }
+  }
+
+  // Bisel: luz arriba-izquierda, sombra abajo-derecha
+  context.fillStyle = 'rgba(255,255,255,0.35)';
+  context.fillRect(px, py, s, bevel);
+  context.fillRect(px, py, bevel, s);
+  context.fillStyle = 'rgba(0,0,0,0.35)';
+  context.fillRect(px, py + s - bevel, s, bevel);
+  context.fillRect(px + s - bevel, py, bevel, s);
+}
 
 const PIECES = [
   null,
@@ -315,13 +403,8 @@ function updateHUD() {
 
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
-  const color = SKINS[currentSkin].colors[colorIndex];
   context.globalAlpha = alpha ?? 1;
-  context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-  // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  SKINS[currentSkin].draw(context, x, y, colorIndex, size);
   context.globalAlpha = 1;
 }
 
